@@ -1,0 +1,9 @@
+@echo off
+
+echo ensuring dependencies...
+.nuget\nuget.exe install packages.config -OutputDirectory packages -ExcludeVersion
+
+echo assumes f# interactive is on your path...
+
+echo fsi Doc.fsx...
+fsi.exe Doc.fsx
