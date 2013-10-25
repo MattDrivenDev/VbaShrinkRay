@@ -3,6 +3,7 @@
 
 # ShrinkRay specific files
 shrinkray.html
+gh-pages/
 
 # User-specific files
 *.suo
