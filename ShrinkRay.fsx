@@ -24,20 +24,19 @@ open System.Text.RegularExpressions
 
 First things first - we need some types to represent the domain of `VBA` code.
 
-We're not going to go too mad here (but feel free to get involved, and extend
-what there is!) - I think we can get the most value from just a few simple
-constructs.
+To begin with I'm **really not** going to go too mad. I can actually work 
+towards leaning quite a lot of information with just a few small data types:
 *)
-
-/// Represent bindings of args, parameters, variables as a name
-/// and optional type information.
-type allocation = Allocation of string * string option
 
 /// Represents a line of code - which as we know can be only either executable
 /// code or a line of commenting.
 type lineOfCode = 
     | Code of string
     | Comment of string
+
+/// Represent bindings of args, parameters, variables as a name
+/// and optional type information.
+type allocation = Allocation of string * string option
 
 /// Record of information about a procedure call.
 type procedureInfo = { 
@@ -63,6 +62,9 @@ type procedure =
 With just these few types we can probably generate the following information
 pretty easily:
 
+* Number of lines of `Code`.
+* Number of lines of `Comment`.
+* Total number of lines of code.
 * Total number of `Sub` and `Function` procedures.
 * Total number of calls to each `Sub` and `Function` procedures.
 * Details of the arguments required by both `Sub` and `Function` procedures.
@@ -172,19 +174,22 @@ a couple of test cases so we can see some of this basic transformation working.
 This will help us trust/reason what is going on with later functions.
 
 I've been using the [F# Interactive][fsi] (the REPL for F# programming) to test
-the behaviour of each of these functions so far - I won't bore you will the 
+the behaviour of each of these functions so far - I won't bore you with the 
 output of all the testing for all of the functions; but I will demonstrate the
 output from using the `linesOfCode` function.
 
  [fsi]: http://msdn.microsoft.com/en-us/library/dd233175.aspx
 
-I'm going to create a little helper function to display the results of my
-testing here:
+Here is a little test helper function that takes a *test name* and then the 
+value to pass into the `linesOfCode` function, interrogate the results and
+print them nicely to the screen.
+
+What follows is a few test runs with a few different scenarios:
 *)
 
 /// Takes a string as input and runs it through our 'linesOfCode' function
 /// and prints the results in what should be nice and readable.
-let test str name =
+let ``test linesOfCode`` str name =
     printfn "Test: %s" name
     match linesOfCode str with
     | None -> printfn "WARN! No lines of code found."
@@ -194,31 +199,31 @@ let test str name =
         ) lines
     printfn "" // for some clarity.
 
-(**
-So let's run some tests:
-*)
-
+// Example 1
 "Empty strings should yield no lines of code." 
-|> test ""
+|> ``test linesOfCode`` ""
 
+// Example 2
 "A few lines of whitespace should yield no lines of code." 
-|> test """
+|> ``test linesOfCode`` """
 
 
 """
 
+// Example 3
 "One line statement should yield 1 line of code."
-|> test "Dim s = \"Hello, world!\""
+|> ``test linesOfCode`` "Dim s = \"Hello, world!\""
 
+// Example 4
 "A 3 lines with a comment, should yield 2 lines of code and 1 comment"
-|> test """
+|> ``test linesOfCode`` """
     Sub ZeroArgumentSubProcedure()
         'does nothing
     End Sub
 """
 
 (**
-Here is the output from the REPL: 
+Here are the test results from the output in the REPL: 
 
     Test: Empty strings should yield no lines of code.
     WARN! No lines of code found.
@@ -234,11 +239,110 @@ Here is the output from the REPL:
     Line 2: Comment "'does nothing"
     Line 3: Code "End Sub"
 
-Excellent!
+Excellent! - that seems to be working great. It'll break if we deliberately 
+throw some `null`'s at it - but I plan to ensure that won't happen as I read
+the data in, so shouldn't be the case here.
+
+At this point I think we can start getting some meaningful data already. We 
+should now very easily be able to calculate the total numbers of lines of
+code in a given codebase:
+
+* Number of lines of `Code`.
+* Number of lines of `Comment`.
+* Total number of lines.
+
+That's already 50% of our original set of requirements above!
+
+This can probably be done with some simple [map/reduce][mr]:
+
+ [mr]: http://fsharpforfunandprofit.com/posts/monoids-part2/
 *)
 
+/// Counts the number of executable lines of code.
+let codeLineCount lines = 
+    lines
+    |> Seq.map (fun line ->
+        match line with
+        | Code _ -> 1
+        | Comment _ -> 0
+    )
+    |> Seq.sum
+
+/// Counts the number of comment lines.
+let commentLineCount lines = 
+    lines
+    |> Seq.map (fun line ->
+        match line with
+        | Code _ -> 0
+        | Comment _ -> 1
+    )
+    |> Seq.sum
+
+/// Counts total number of lines of code.
+let totalLineCount lines = 
+    lines
+    |> Seq.map (fun line -> 1)
+    |> Seq.sum
+
+(**
+I'm going to redefine my `test` function above so as I can prove these few
+map/reduce functions are correct:
+*)
+
+/// Takes a string as input and runs it through our 'linesOfCode' function
+/// and prints the results in what should be nice and readable.
+let ``test aggregate functions`` str name =
+    printfn "Test: %s" name
+    match linesOfCode str  with
+    | None -> printfn "WARN! No lines of code found."
+    | Some lines -> 
+        lines |> codeLineCount |> (printfn "Number of lines of Code: %i") 
+        lines |> commentLineCount |> (printfn "Number of lines of Comments: %i") 
+        lines |> totalLineCount |> (printfn "Total: %i") 
+    printfn "" // for some clarity.
+
+// Example 1
+"Empty strings should yield no lines of code." 
+|> ``test aggregate functions`` ""
+
+// Example 2
+"A few lines of whitespace should yield no lines of code." 
+|> ``test aggregate functions`` """
 
 
+"""
+
+// Example 3
+"One line statement should yield 1 line of code."
+|> ``test aggregate functions`` "Dim s = \"Hello, world!\""
+
+// Example 4
+"A 3 lines with a comment, should yield 2 lines of code and 1 comment and 3 total."
+|> ``test aggregate functions`` """
+    Sub ZeroArgumentSubProcedure()
+        'does nothing
+    End Sub
+"""
+
+(**
+The resulting output in our REPL:
+
+    Test: Empty strings should yield no lines of code.
+    WARN! No lines of code found.
+
+    Test: A few lines of whitespace should yield no lines of code.
+    WARN! No lines of code found.
+
+    Test: One line statement should yield 1 line of code.
+    Number of lines of Code: 1
+    Number of lines of Comments: 0
+    Total: 1
+
+    Test: A 3 lines with a comment, should yield 2 lines of code and 1 comment and 3 total.
+    Number of lines of Code: 2
+    Number of lines of Comments: 1
+    Total: 3
+*)
 
 
 
@@ -261,7 +365,6 @@ let tokenizeWords =
 let tokenize vb =
     tokenizeLines vb |> maybe (Seq.map tokenizeWords)
 
-/// Parses vba code represented as a string and returns a collection
-/// of all the discovered procedures.
+(*** hide ***)
 let getProcedures vb = 
     option<procedure seq>.None
