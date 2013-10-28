@@ -17,8 +17,27 @@ still remain valuable.
 (** 
 ## Requirements
 
-I'm a big fan of requirements. In fact, more than once I've stated that 
-**having requirements, is a business requirement**.
+1. Total number of lines of code
+2. Total number of procedures
+3. Total number of dependencies upon a procedure, and their locations
+
+There are not a great number of requirements - and I'm going to be taking a 
+fairly naive approach to meeting them; but it should be **good enough** to be
+useful.
+
+I am going to be working with a fairly standard folder structure full of text
+files that contain VBA source code, as generated with [MSAccess SVN][svn]
+
+    ~/src/
+       |> Forms/
+       |> General/
+       |> Modules/
+       |> Queries/
+       |> Reports/
+       |> Scripts/
+       |> Tables/
+
+ [svn]: http://accesssvn.codeplex.com/
 *)
 
 (*** hide ***)
@@ -27,20 +46,37 @@ open System.IO
 open System.Text.RegularExpressions
 Directory.SetCurrentDirectory(__SOURCE_DIRECTORY__)
 
+(**
+First up, a few types that will help define the domain of VBA source code:
+*)
+
+/// Defines a raw and unprocessed line of VBA code.
 type RawLine = RawLine of string list
 
+/// Defines a line of VBA code during processing, which can be either a line
+/// of declaration code (sub, function, module etc.) - or a line of body code.
 type ClassifiedLine = 
     | DeclarationLine of string
     | BodyLine of string list
 
+/// Defines a line of VBA code once processing has completed, that represents a
+/// definition (sub, function, module etc.) - essentially a codeblock header.
 type Definition = Definition of string
 
+/// Defines a line of VBA code once processing has completed, that represents a
+/// normal line of code within a block of code.
 type LineOfCode = LineOfCode of string list
 
-type CodeBlock = {    
-    Definition: Definition
-    Lines: LineOfCode list
-}
+/// Defines a block of code (essentially a header + body).
+type CodeBlock = 
+    { /// The 'header' for the codeblock, a sub/function/module definition.
+      Definition: Definition
+      /// The 'body' for the codeblock, statements comments etc.
+      Lines: LineOfCode list }
+
+(**
+
+*)
 
 let lowerCase (s:string) = s.ToLower()
 
