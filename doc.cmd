@@ -10,7 +10,7 @@ fsi.exe Doc.fsx
 
 echo copy documentation to 'gh-pages' subfolder...
 xcopy "content" "gh-pages\content\" /s /y /u
-xcopy "ShrinkRay.html" "gh-pages\index.html" /y
+xcopy "VbaShrinkRay.html" "gh-pages\index.html" /y
 
 echo documentation complete!
 echo view ./index.html to review :)

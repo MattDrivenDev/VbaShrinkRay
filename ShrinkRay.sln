@@ -1,12 +1,10 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.21005.1
-MinimumVisualStudioVersion = 10.0.40219.1
+# Visual Studio 2012
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tool", "tool", "{FDE5628D-97DB-42EE-90B4-76FD1DC72A72}"
 	ProjectSection(SolutionItems) = preProject
 		run.cmd = run.cmd
-		ShrinkRay.fsx = ShrinkRay.fsx
+		VbaShrinkRay.fsx = VbaShrinkRay.fsx
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{82850DE8-0DE9-43C9-991E-5D3F7230EF2F}"

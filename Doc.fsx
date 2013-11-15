@@ -10,5 +10,5 @@ open System.IO
 let source = __SOURCE_DIRECTORY__
 let template = Path.Combine(source, "template.html")
 
-let script = Path.Combine(source, "ShrinkRay.fsx")
+let script = Path.Combine(source, "VbaShrinkRay.fsx")
 Literate.ProcessScriptFile(script, template)
