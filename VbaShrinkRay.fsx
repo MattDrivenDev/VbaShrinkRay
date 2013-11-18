@@ -7,7 +7,6 @@ Shinking all of your vba's! `>:D`
 open System
 open System.IO
 open System.Text.RegularExpressions
-Directory.SetCurrentDirectory(__SOURCE_DIRECTORY__)
 
 type rawLineOfCode = RawLine of string list
 
@@ -27,6 +26,12 @@ type parser = string seq -> codeBlock list
 
 let lowerCase (s:string) = s.ToLower()
 
+let removeCodeGen xs =    
+    Seq.fold (fun lines (l:string) ->
+        if l = "codebehindform" then [||]
+        else Array.append lines [|l|]
+    ) [||] xs
+
 let notEmpty (xs:seq<string>) = xs |> Seq.isEmpty |> not
 
 let split s = 
@@ -35,14 +40,16 @@ let split s =
     |> Seq.cast<Match>
     |> Seq.map (fun m -> m.ToString())
     |> List.ofSeq
-
-let rawLineOfCode = RawLine
-
+    
 let classifiedLineOfCode (RawLine words) =
     match words with
     | [] -> failwith "Cannot classify an empty line."
     | _ :: "sub" :: name :: _ -> DeclarationLine name
+    | "sub" :: name :: _ -> DeclarationLine name
     | _ :: "function" :: name :: _ -> DeclarationLine name
+    | "function" :: name :: _ -> DeclarationLine name
+    | _ :: "table" :: name :: _ -> DeclarationLine name
+    | "table" :: name :: _ -> DeclarationLine name
     | _ -> BodyLine words
 
 let codeBlocks (codeDom:codeBlock list) line =     
@@ -58,23 +65,9 @@ let codeBlocks (codeDom:codeBlock list) line =
 
 let parse : parser =     
     Seq.map lowerCase
+    >> removeCodeGen
     >> Seq.map split
     >> Seq.filter notEmpty
-    >> Seq.map rawLineOfCode
+    >> Seq.map RawLine
     >> Seq.map classifiedLineOfCode
     >> Seq.fold codeBlocks []
-
-
-[ "Private Sub ZeroArgumentSubProcedureDoesNothing()"
-  "    'intentionally does nothing"
-  "End Sub" ]
-|> parse
-|> Seq.iter (printfn "%A")
-
-[ "" ]
-|> parse
-|> Seq.iter (printfn "%A")
-
-[ "Dim i = 0" ]
-|> parse
-|> Seq.iter (printfn "%A")
