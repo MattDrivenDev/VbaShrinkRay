@@ -1,29 +1,27 @@
-﻿(**
-# VbaShinkRay
-
-Shinking all of your vba's! `>:D`
-*)
-
-open System
+﻿open System
 open System.IO
 open System.Text.RegularExpressions
 
-type rawLineOfCode = RawLine of string list
+type RawLine = RawLine of string list
 
-type classifiedLineOfCode = 
+type ClassifiedLine = 
     | DeclarationLine of string
     | BodyLine of string list
     
-type blockDefinition = BlockDefinition of string
+type Definition = Definition of string
 
-type blockLineOfCode = BlockLineOfCode of string list
+type LineOfCode = LineOfCode of string list
 
-type codeBlock = { 
-    Definition: blockDefinition option
-    Lines: blockLineOfCode list }
+type CodeBlock = { 
+    SourceFile : string
+    Definition : Definition option
+    Lines      : LineOfCode list }
 
-type parser = string seq -> codeBlock list
-
+let fqn codeblock = 
+    match codeblock.Definition with
+    | Some (Definition def) -> sprintf "%s.%s" codeblock.SourceFile def
+    | None -> sprintf "%s.Global" codeblock.SourceFile
+    
 let lowerCase (s:string) = s.ToLower()
 
 let removeCodeGen xs =    
@@ -41,7 +39,7 @@ let split s =
     |> Seq.map (fun m -> m.ToString())
     |> List.ofSeq
     
-let classifiedLineOfCode (RawLine words) =
+let classifyCode (RawLine words) =
     match words with
     | [] -> failwith "Cannot classify an empty line."
     | _ :: "sub" :: name :: _ -> DeclarationLine name
@@ -50,24 +48,33 @@ let classifiedLineOfCode (RawLine words) =
     | "function" :: name :: _ -> DeclarationLine name
     | _ :: "table" :: name :: _ -> DeclarationLine name
     | "table" :: name :: _ -> DeclarationLine name
+    | _ :: "module" :: name :: _ -> DeclarationLine name
+    | "module" :: name :: _ -> DeclarationLine name
     | _ -> BodyLine words
 
-let codeBlocks (codeDom:codeBlock list) line =     
+let codeBlock filename = 
+    function
+    | BodyLine words -> {SourceFile=filename;Definition=None;Lines=[LineOfCode words]}
+    | DeclarationLine name -> {SourceFile=filename;Definition=Some(Definition name);Lines=[]}
+
+let addLineOfCode codeblock line = 
+    {codeblock with Lines=codeblock.Lines @ [line]}
+
+let intoCodeBlocks filename (codeDom:CodeBlock list) line =
     match codeDom with
-    | [] -> 
-        match line with
-        | BodyLine words -> [{ Definition = None; Lines = [BlockLineOfCode words] }]
-        | DeclarationLine name -> [{ Definition = Some(BlockDefinition name); Lines = [] }]
+    | [] -> [codeBlock filename line]
     | head :: tail -> 
         match line with
-        | BodyLine words -> { head with Lines = head.Lines @ [BlockLineOfCode words] } :: tail
-        | DeclarationLine name -> { Definition = Some(BlockDefinition name); Lines = [] } :: codeDom
+        | BodyLine words -> addLineOfCode head (LineOfCode words) :: tail
+        | DeclarationLine name -> codeBlock filename line :: codeDom
 
-let parse : parser =     
-    Seq.map lowerCase
-    >> removeCodeGen
-    >> Seq.map split
-    >> Seq.filter notEmpty
-    >> Seq.map RawLine
-    >> Seq.map classifiedLineOfCode
-    >> Seq.fold codeBlocks []
+let parse filename =     
+    let parseAllLines =
+        Seq.map lowerCase
+        >> removeCodeGen
+        >> Seq.map split
+        >> Seq.filter notEmpty
+        >> Seq.map RawLine
+        >> Seq.map classifyCode
+        >> Seq.fold (intoCodeBlocks filename) []    
+    filename |> (File.ReadAllLines >> parseAllLines)
